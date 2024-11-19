@@ -1,0 +1,183 @@
+#!/bin/sh
+
+set -x
+
+exec 1> /tmp/wz_mini_initramfs.log 2>&1
+
+# Start LED script and get its process ID
+/led.sh &
+led_pid="$!"
+
+# Function to generate a backup directory
+generate_backup_dir() {
+	base_dir="/sdcard"
+	template="$base_dir/WYZE_BACKUP_XXXXXX"
+
+	# Create a unique temporary directory
+	backup_dir=$(mktemp -d -p "$base_dir" "WYZE_BACKUP_XXXXXX" 2>/dev/null)
+	if [ -z "$backup_dir" ]; then
+		echo "Error: Unable to create a unique directory in $base_dir."
+		exit 1
+	fi
+
+	echo "$backup_dir"
+}
+
+# Function to backup MTD partitions
+backup_mtd_partitions() {
+	mtd_file="/proc/mtd"
+	log_file="/tmp/wz_mini_initramfs.log"
+	backup_dir=$(generate_backup_dir)
+	status_file="$backup_dir/STATUS"
+	log_backup="$backup_dir/wz_mini_initramfs.log"
+
+	# Check if /proc/mtd exists
+	if [ ! -f "$mtd_file" ]; then
+		echo "Error: $mtd_file not found. Are you running on a system with MTD partitions?" > "$status_file"
+		cp "$log_file" "$log_backup" 2>/dev/null
+		exit 1
+	fi
+
+	# Read and process each line in /proc/mtd
+	while read -r line; do
+		case "$line" in
+			mtd[0-9]*)
+				mtd_number=$(echo "$line" | cut -d: -f1)
+				mtd_name=$(echo "$line" | cut -d\" -f2)
+				output_file="$backup_dir/${mtd_number}.bin"
+
+				echo "Backing up $mtd_number ($mtd_name) to $output_file..."
+
+				# Dump partition to a file
+				if ! dd if="/dev/$mtd_number" of="$output_file" bs=4096 conv=fsync 2>/dev/null; then
+					echo "Error: Failed to backup $mtd_number." > "$status_file"
+					cp "$log_file" "$log_backup" 2>/dev/null
+				fi
+
+				# Generate SHA256 checksum for the dumped file
+				dumped_sha=$(sha256sum "$output_file" | awk '{print $1}')
+				echo "$dumped_sha  $output_file" > "$output_file.sha256"
+
+				# Generate SHA256 checksum for the live MTD partition
+				mtd_sha=$(dd if="/dev/$mtd_number" bs=4096 conv=fsync 2>/dev/null | sha256sum | awk '{print $1}')
+
+				# Compare checksums
+				if [ "$dumped_sha" != "$mtd_sha" ]; then
+					echo "Error: Checksum mismatch for $mtd_number. Backup may be corrupted." > "$status_file"
+					cp "$log_file" "$log_backup" 2>/dev/null
+				fi
+
+				echo "Backup and checksum validation completed for $mtd_number."
+				;;
+		esac
+	done < "$mtd_file"
+}
+
+# Main script execution starts here
+echo "Welcome to wz_mini initramfs for Thingino"
+
+# Mount necessary filesystems for initramfs
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+# Required delay on T20/T31 platform
+sleep 1
+
+echo "Check for T20 platform"
+
+# Check for T20 platform using /dev/mtdblock10
+if [ "$(/sbin/soc -f)" = "t20" ]; then
+	echo "Found T20"
+
+	# T20: Need to export the SD card enable GPIO manually
+	echo 43 > /sys/class/gpio/export
+	echo in > /sys/class/gpio/gpio43/direction
+
+	# T20: Insert required delay for SD card init
+	sleep 3
+fi
+
+# Initialize GPIOs for the Wi-Fi module if not already initialized
+if ! [ -d /sys/class/gpio/gpio38 ]; then
+	echo 38 > /sys/class/gpio/export
+	echo out > /sys/class/gpio/gpio38/direction
+	echo 1 > /sys/class/gpio/gpio38/value
+fi
+
+if ! [ -d /sys/class/gpio/gpio39 ]; then
+	echo 39 > /sys/class/gpio/export
+	echo out > /sys/class/gpio/gpio39/direction
+	echo 1 > /sys/class/gpio/gpio39/value
+fi
+
+# Detect hardware and log version information
+echo "Detecting hardware"
+sbin/soc -m > /tmp/SOC_VERSION
+if [ "$(/sbin/soc -f)" = "t20" ]; then
+	insmod /lib/sinfo_t20.ko
+else
+	insmod /lib/sinfo_t31.ko
+fi
+sleep 1
+echo 1 > /proc/jz/sinfo/info
+dmesg | grep Success > /tmp/SENSOR_VER
+
+# Check if the SOC is t31a and handle Wi-Fi GPIO accordingly
+if [ "$(/sbin/soc -m)" = "t31a" ]; then
+	echo "Skipping Wi-Fi GPIO setup, SOC is t31a"
+else
+	/bin/gpio-diag pb08 func 1 drive 2
+	/bin/gpio-diag pb09 func 1 drive 1
+	/bin/gpio-diag pb10 func 1 drive 1
+	/bin/gpio-diag pb11 func 1 drive 1
+	/bin/gpio-diag pb13 func 1 drive 1
+	/bin/gpio-diag pb14 func 1 drive 1
+fi
+
+# Perform SD card insertion and log Wi-Fi module vendor and device
+sleep 1
+echo INSERT > /sys/devices/platform/jzmmc_v1.2.1/present
+sleep 1
+
+echo "vendor: $(cat /sys/devices/platform/jzmmc_v1.2.1/mmc_host/mmc1/mmc1:0001/mmc1:0001:1/vendor)" >> /tmp/WIFI_MODULE
+echo "device: $(cat /sys/devices/platform/jzmmc_v1.2.1/mmc_host/mmc1/mmc1:0001/mmc1:0001:1/device)" >> /tmp/WIFI_MODULE
+echo REMOVE > /sys/devices/platform/jzmmc_v1.2.1/present
+
+# Insert SD card and mount it
+sleep 1
+echo INSERT > /sys/devices/platform/jzmmc_v1.2.0/present
+sleep 1
+
+mkdir -p /sdcard
+mount -t vfat /dev/mmcblk0p1 /sdcard -o rw,umask=0000,dmask=0000
+
+# Perform MTD partition backup
+sleep 1
+backup_mtd_partitions
+
+# Copy logs to backup directory
+cp /tmp/* "$backup_dir"
+
+# Erase MTD partition and finalize backup process
+echo "Erasing..."
+flash_eraseall /dev/mtd0
+echo "mtd0 erasing completed"
+
+cp "$log_file" "$log_backup" 2>/dev/null
+
+# Reboot and clean up
+echo "Rebooting..."
+
+mv /sdcard/factory_t31_ZMC6tiIDQN /sdcard/factory_t31_ZMC6tiIDQN.old
+mv /sdcard/factory_ZMC6tiIDQN /sdcard/factory_ZMC6tiIDQN.old
+
+# Sync file systems and unmount the SD card
+sync
+umount /sdcard
+
+# Kill the LED process
+kill $led_pid
+
+# Reset the system using watchdog
+echo wdt > /proc/jz/reset/reset
