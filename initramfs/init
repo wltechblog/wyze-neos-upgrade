@@ -25,52 +25,65 @@ generate_backup_dir() {
 
 # Function to backup MTD partitions
 backup_mtd_partitions() {
-	mtd_file="/proc/mtd"
-	log_file="/tmp/wz_mini_initramfs.log"
-	backup_dir=$(generate_backup_dir)
-	status_file="$backup_dir/STATUS"
-	log_backup="$backup_dir/wz_mini_initramfs.log"
+		mtd_file="/proc/mtd"
+		log_file="/tmp/wz_mini_initramfs.log"
+		backup_dir=$(generate_backup_dir)
+		status_file="$backup_dir/STATUS"
+		log_backup="$backup_dir/wz_mini_initramfs.log"
+		combined_file="$backup_dir/combined_backup.bin"
 
-	# Check if /proc/mtd exists
-	if [ ! -f "$mtd_file" ]; then
-		echo "Error: $mtd_file not found. Are you running on a system with MTD partitions?" > "$status_file"
-		cp "$log_file" "$log_backup" 2>/dev/null
-		exit 1
-	fi
+		# Check if /proc/mtd exists
+		if [ ! -f "$mtd_file" ]; then
+				echo "Error: $mtd_file not found. Are you running on a system with MTD partitions?" > "$status_file"
+				cp "$log_file" "$log_backup" 2>/dev/null
+				exit 1
+		fi
 
-	# Read and process each line in /proc/mtd
-	while read -r line; do
-		case "$line" in
-			mtd[0-9]*)
-				mtd_number=$(echo "$line" | cut -d: -f1)
-				mtd_name=$(echo "$line" | cut -d\" -f2)
-				output_file="$backup_dir/${mtd_number}.bin"
+		# Create the combined file
+		> "$combined_file"
 
-				echo "Backing up $mtd_number ($mtd_name) to $output_file..."
+		# Read and process each line in /proc/mtd
+		while read -r line; do
+				case "$line" in
+						mtd[0-9]*)
+								mtd_number=$(echo "$line" | cut -d: -f1)
+								mtd_name=$(echo "$line" | cut -d\" -f2)
+								output_file="$backup_dir/${mtd_number}.bin"
 
-				# Dump partition to a file
-				if ! dd if="/dev/$mtd_number" of="$output_file" bs=4096 conv=fsync 2>/dev/null; then
-					echo "Error: Failed to backup $mtd_number." > "$status_file"
-					cp "$log_file" "$log_backup" 2>/dev/null
-				fi
+								echo "Backing up $mtd_number ($mtd_name) to $output_file..."
 
-				# Generate SHA256 checksum for the dumped file
-				dumped_sha=$(sha256sum "$output_file" | awk '{print $1}')
-				echo "$dumped_sha  $output_file" > "$output_file.sha256"
+								# Dump partition to a file
+								if ! dd if="/dev/$mtd_number" of="$output_file" bs=4096 conv=fsync 2>/dev/null; then
+										echo "Error: Failed to backup $mtd_number." > "$status_file"
+										cp "$log_file" "$log_backup" 2>/dev/null
+								fi
 
-				# Generate SHA256 checksum for the live MTD partition
-				mtd_sha=$(dd if="/dev/$mtd_number" bs=4096 conv=fsync 2>/dev/null | sha256sum | awk '{print $1}')
+								# Generate SHA256 checksum for the dumped file
+								dumped_sha=$(sha256sum "$output_file" | awk '{print $1}')
+								echo "$dumped_sha  $output_file" > "$output_file.sha256"
 
-				# Compare checksums
-				if [ "$dumped_sha" != "$mtd_sha" ]; then
-					echo "Error: Checksum mismatch for $mtd_number. Backup may be corrupted." > "$status_file"
-					cp "$log_file" "$log_backup" 2>/dev/null
-				fi
+								# Generate SHA256 checksum for the live MTD partition
+								mtd_sha=$(dd if="/dev/$mtd_number" bs=4096 conv=fsync 2>/dev/null | sha256sum | awk '{print $1}')
 
-				echo "Backup and checksum validation completed for $mtd_number."
-				;;
-		esac
-	done < "$mtd_file"
+								# Compare checksums
+								if [ "$dumped_sha" != "$mtd_sha" ]; then
+										echo "Error: Checksum mismatch for $mtd_number. Backup may be corrupted." > "$status_file"
+										cp "$log_file" "$log_backup" 2>/dev/null
+								fi
+
+								# Append the current partition dump to the combined file
+								cat "$output_file" >> "$combined_file"
+
+								echo "Backup and checksum validation completed for $mtd_number."
+								;;
+				esac
+		done < "$mtd_file"
+
+		# Generate checksum for the combined file
+		combined_sha=`sha256sum "$combined_file" | awk '{print $1}'`
+		echo "$combined_sha  $combined_file" > "$combined_file.sha256"
+
+		echo "All partitions have been concatenated into $combined_file."
 }
 
 # Main script execution starts here
@@ -82,7 +95,7 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 
 # Required delay on T20/T31 platform
-sleep 1
+ccsleep 1
 
 echo "Check for T20 platform"
 
@@ -180,6 +193,33 @@ echo "Rebooting..."
 
 mv /sdcard/factory_t31_ZMC6tiIDQN /sdcard/factory_t31_ZMC6tiIDQN.old
 mv /sdcard/factory_ZMC6tiIDQN /sdcard/factory_ZMC6tiIDQN.old
+
+sensor_name=$(cat /tmp/SENSOR_VER | sed -n 's/.*Successful sensor detection: \([^,]*\),.*/\1/p')
+
+# Convenience rename
+if [ "$(/sbin/soc -f)" = "t20" ]; then
+	# Check for jxf23
+	if [ "$sensor_ver" = "jxf23" ] && [ -f "/sdcard/thingino-wyze_c2_jxf23.bin" ]; then
+		mv "/sdcard/thingino-wyze_c2_jxf23.bin" "/sdcard/autoupdate-full.bin"
+	# Check for jxf22
+	elif [ "$sensor_ver" = "jxf22" ] && [ -f "/sdcard/thingino-wyze_c2_jxf22.bin" ]; then
+		mv "/sdcard/thingino-wyze_c2_jxf22.bin" "/sdcard/autoupdate-full.bin"
+	else
+		echo "Error: No matching firmware file found for t20, skipping rename."
+	fi
+elif [ "$(/sbin/soc -f)" = "t31" ]; then
+	if [ "$(/sbin/soc -m)" = "t31al" ] && [ -f "/sdcard/thingino-wyze_c3_t31al_atbm.bin" ]; then
+		mv "/sdcard/thingino-wyze_c3_t31al_atbm.bin" "/sdcard/autoupdate-full.bin"
+	elif grep -q "0x007a" /tmp/WIFI_MODULE 2>/dev/null && [ -f "/sdcard/thingino-wyze_c3_t31x_atbm.bin" ]; then
+		mv "/sdcard/thingino-wyze_c3_t31x_atbm.bin" "/sdcard/autoupdate-full.bin"
+		echo "atbm"
+	elif [ -f "/sdcard/thingino-wyze_c3_t31x_rtl.bin" ]; then
+		mv "/sdcard/thingino-wyze_c3_t31x_rtl.bin" "/sdcard/autoupdate-full.bin"
+		echo "rtl"
+	else
+		echo "Error: No matching firmware file found for t31, skipping rename."
+	fi
+fi
 
 # Sync file systems and unmount the SD card
 sync
