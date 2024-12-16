@@ -186,14 +186,6 @@ else
 	echo "SoC not supported in this installer"
 fi
 
-cp "$log_file" "$log_backup" 2>/dev/null
-
-# Reboot and clean up
-echo "Rebooting..."
-
-mv /sdcard/factory_t31_ZMC6tiIDQN /sdcard/factory_t31_ZMC6tiIDQN.old
-mv /sdcard/factory_ZMC6tiIDQN /sdcard/factory_ZMC6tiIDQN.old
-
 sensor_name=$(cat /tmp/SENSOR_VER | sed -n 's/.*Successful sensor detection: \([^,]*\),.*/\1/p')
 
 # Convenience rename
@@ -220,6 +212,14 @@ elif [ "$(/sbin/soc -f)" = "t31" ]; then
 		echo "Error: No matching firmware file found for t31, skipping rename."
 	fi
 fi
+
+# Reboot and clean up
+echo "Rebooting..."
+
+mv /sdcard/factory_t31_ZMC6tiIDQN /sdcard/factory_t31_ZMC6tiIDQN.old
+mv /sdcard/factory_ZMC6tiIDQN /sdcard/factory_ZMC6tiIDQN.old
+
+cp "$log_file" "$log_backup" 2>/dev/null
 
 # Sync file systems and unmount the SD card
 sync
