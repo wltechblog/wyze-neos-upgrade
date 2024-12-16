@@ -199,10 +199,10 @@ sensor_name=$(cat /tmp/SENSOR_VER | sed -n 's/.*Successful sensor detection: \([
 # Convenience rename
 if [ "$(/sbin/soc -f)" = "t20" ]; then
 	# Check for jxf23
-	if [ "$sensor_ver" = "jxf23" ] && [ -f "/sdcard/thingino-wyze_c2_jxf23.bin" ]; then
+	if [ "$sensor_name" = "jxf23" ] && [ -f "/sdcard/thingino-wyze_c2_jxf23.bin" ]; then
 		mv "/sdcard/thingino-wyze_c2_jxf23.bin" "/sdcard/autoupdate-full.bin"
 	# Check for jxf22
-	elif [ "$sensor_ver" = "jxf22" ] && [ -f "/sdcard/thingino-wyze_c2_jxf22.bin" ]; then
+	elif [ "$sensor_name" = "jxf22" ] && [ -f "/sdcard/thingino-wyze_c2_jxf22.bin" ]; then
 		mv "/sdcard/thingino-wyze_c2_jxf22.bin" "/sdcard/autoupdate-full.bin"
 	else
 		echo "Error: No matching firmware file found for t20, skipping rename."
