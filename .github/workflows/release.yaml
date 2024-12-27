@@ -1,0 +1,92 @@
+name: wz_neos_upgrade
+
+on:
+  workflow_dispatch:
+
+env:
+  TAG_NAME: wz-neos
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TERM: linux
+  TZ: America/Los_Angeles
+
+jobs:
+  build:
+    name: build-release
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    container:
+      image: debian:bookworm
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Update package manager sources
+        run: |
+          apt-get update
+
+      - name: Install build dependencies
+        run: |
+          apt-get install -y --no-install-recommends --no-install-suggests 7zip build-essential bc ccache cpio curl ca-certificates file git gh jq make gawk lzop procps rsync tzdata u-boot-tools unzip
+
+      - name: Set timezone
+        run: |
+          ln -sf /usr/share/zoneinfo/${{ env.TZ }} /etc/localtime
+          echo ${{ env.TZ }} > /etc/timezone
+          DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive tzdata
+
+      - name: Setup gh workspace to container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Checkout repository source
+        uses: actions/checkout@v4
+        with:
+          ref: "master"
+          fetch-depth: "1"
+
+      - name: Setup cache directories
+        run: |
+          mkdir -p /github/home/.ccache
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: /github/home/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ github.sha }}
+            ${{ runner.os }}-ccache-
+
+      - name: Download toolchain
+        run: |
+          curl -L https://github.com/themactep/thingino-firmware/releases/download/toolchain/thingino-toolchain_xburst1_musl_gcc14-linux-mipsel.tar.gz -o ~/thingino-toolchain_xburst1_musl_gcc14-linux-mipsel.tar.gz
+          tar -xf ~/thingino-toolchain_xburst1_musl_gcc14-linux-mipsel.tar.gz -C ~/
+          ~/mipsel-thingino-linux-musl_sdk-buildroot/relocate-sdk.sh
+
+      - name: Build
+        if: ${{ github.event.inputs.debug_enabled != 'true' }}
+        shell: bash
+        run: |
+          export CCACHE_DIR=/github/home/.ccache
+          export PATH="/usr/lib/ccache:$PATH"
+          export PATH="/github/home/mipsel-thingino-linux-musl_sdk-buildroot/bin:$PATH"
+          ccache -M 4G
+          git clone --depth 1 https://github.com/gtxaspec/thingino-linux -b ingenic-t31
+          cp kernel_configs/* thingino-linux/arch/mips/configs/
+          ./initramfs_create.sh
+          cd thingino-linux
+          make isvp_bull_mini_defconfig
+          CROSS_COMPILE="ccache mipsel-linux-" make -j$(nproc) uImage
+          cp arch/mips/boot/uImage.lzma /tmp/uImage.lzma-t20
+          make isvp_swan_mini_defconfig
+          CROSS_COMPILE="ccache mipsel-linux-" make -j$(nproc) uImage
+          cp arch/mips/boot/uImage.lzma /tmp/uImage.lzma-t31
+
+      - name: Upload firmware as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wz-neos-upgrader
+          path: |
+            /tmp/uImage.lzma-t20
+            /tmp/uImage.lzma-t31

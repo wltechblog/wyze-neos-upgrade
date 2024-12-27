@@ -204,10 +204,10 @@ elif [ "$(/sbin/soc -f)" = "t31" ]; then
 		mv "/sdcard/thingino-wyze_c3_t31al_atbm.bin" "/sdcard/autoupdate-full.bin"
 	elif grep -q "0x007a" /tmp/WIFI_MODULE 2>/dev/null && [ -f "/sdcard/thingino-wyze_c3_t31x_atbm.bin" ]; then
 		mv "/sdcard/thingino-wyze_c3_t31x_atbm.bin" "/sdcard/autoupdate-full.bin"
-		echo "atbm"
+		echo "Altobeam ATBM" >> /tmp/WIFI_MODULE
 	elif [ -f "/sdcard/thingino-wyze_c3_t31x_rtl.bin" ]; then
 		mv "/sdcard/thingino-wyze_c3_t31x_rtl.bin" "/sdcard/autoupdate-full.bin"
-		echo "rtl"
+		echo "Realtek RTL" >> /tmp/WIFI_MODULE
 	else
 		echo "Error: No matching firmware file found for t31, skipping rename."
 	fi

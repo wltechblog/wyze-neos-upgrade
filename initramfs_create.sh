@@ -13,15 +13,15 @@
 
 set -x
 
-ROOTFS_DIR=/tmp/cpiotest
+ROOTFS_DIR=$(pwd)/wyze_cpio-dir
 
-rm -f /tmp/initramfs.cpio
+rm -f ./initramfs.cpio /tmp/initramfs.cpio
 rm -rf $ROOTFS_DIR
 mkdir -p $ROOTFS_DIR
 cd $ROOTFS_DIR
 mkdir -p {bin,dev,etc,lib,mnt,proc,root,sbin,sys,tmp}
-
-cp -r /tmp/wz_initramfs/* $ROOTFS_DIR/
+pwd
+cp -r ../initramfs/* $ROOTFS_DIR/
 
 mknod $ROOTFS_DIR/dev/console c 5 1
 mknod $ROOTFS_DIR/dev/null c 1 3
@@ -32,6 +32,8 @@ mknod $ROOTFS_DIR/dev/tty3 c 4 3
 mknod $ROOTFS_DIR/dev/tty4 c 4 4
 
 
-find . | cpio -H newc -o > /tmp/initramfs.cpio
+find . | cpio -H newc -o > ../initramfs.cpio
+
+cp ../initramfs.cpio /tmp
 
 rm -rf $ROOTFS_DIR
