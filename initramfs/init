@@ -155,7 +155,7 @@ sleep 1
 
 echo "vendor: $(cat /sys/devices/platform/jzmmc_v1.2.1/mmc_host/mmc1/mmc1:0001/mmc1:0001:1/vendor)" >> /tmp/WIFI_MODULE
 echo "device: $(cat /sys/devices/platform/jzmmc_v1.2.1/mmc_host/mmc1/mmc1:0001/mmc1:0001:1/device)" >> /tmp/WIFI_MODULE
-echo REMOVE > /sys/devices/platform/jzmmc_v1.2.1/present
+#echo REMOVE > /sys/devices/platform/jzmmc_v1.2.1/present
 
 # Insert SD card and mount it
 sleep 1
