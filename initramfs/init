@@ -191,23 +191,32 @@ sensor_name=$(cat /tmp/SENSOR_VER | sed -n 's/.*Successful sensor detection: \([
 # Convenience rename
 if [ "$(/sbin/soc -f)" = "t20" ]; then
 	# Check for jxf23
-	if [ "$sensor_name" = "jxf23" ] && [ -f "/sdcard/thingino-wyze_c2_jxf23.bin" ]; then
-		mv "/sdcard/thingino-wyze_c2_jxf23.bin" "/sdcard/autoupdate-full.bin"
+	if [ "$sensor_name" = "jxf23" ] && [ -f "/sdcard/thingino-wyze_cam2_t20x_jxf23_rtl8189ftv.bin" ]; then
+		mv "/sdcard/thingino-wyze_cam2_t20x_jxf23_rtl8189ftv.bin" "/sdcard/autoupdate-full.bin"
 	# Check for jxf22
-	elif [ "$sensor_name" = "jxf22" ] && [ -f "/sdcard/thingino-wyze_c2_jxf22.bin" ]; then
-		mv "/sdcard/thingino-wyze_c2_jxf22.bin" "/sdcard/autoupdate-full.bin"
+	elif [ "$sensor_name" = "jxf22" ] && [ -f "/sdcard/thingino-wyze_cam2_t20x_jxf22_rtl8189ftv.bin" ]; then
+		mv "/sdcard/thingino-wyze_cam2_t20x_jxf22_rtl8189ftv.bin" "/sdcard/autoupdate-full.bin"
+	# Check for jxf22 for cam pan v1
+	elif [ "$sensor_name" = "jxf22" ] && [ -f "/sdcard/thingino-wyze_campan1_t20x_jxf22_rtl8189etv.bin" ]; then
+		mv "/sdcard/thingino-wyze_campan1_t20x_jxf22_rtl8189etv.bin" "/sdcard/autoupdate-full.bin"
+
 	else
 		echo "Error: No matching firmware file found for t20, skipping rename."
 	fi
 elif [ "$(/sbin/soc -f)" = "t31" ]; then
-	if [ "$(/sbin/soc -m)" = "t31al" ] && [ -f "/sdcard/thingino-wyze_c3_t31al_atbm.bin" ]; then
-		mv "/sdcard/thingino-wyze_c3_t31al_atbm.bin" "/sdcard/autoupdate-full.bin"
-	elif grep -q "0x007a" /tmp/WIFI_MODULE 2>/dev/null && [ -f "/sdcard/thingino-wyze_c3_t31x_atbm.bin" ]; then
-		mv "/sdcard/thingino-wyze_c3_t31x_atbm.bin" "/sdcard/autoupdate-full.bin"
+	if [ "$(/sbin/soc -m)" = "t31al" ] && [ -f "/sdcard/thingino-wyze_cam3_t31al_gc2053_atbm6031.bin" ]; then
+		mv "/sdcard/thingino-wyze_cam3_t31al_gc2053_atbm6031.bin" "/sdcard/autoupdate-full.bin"
+	elif grep -q "0x007a" /tmp/WIFI_MODULE 2>/dev/null && [ -f "/sdcard/thingino-wyze_cam3_t31x_gc2053_atbm6031.bin" ]; then
+		mv "/sdcard/thingino-wyze_cam3_t31x_gc2053_atbm6031.bin" "/sdcard/autoupdate-full.bin"
 		echo "Altobeam ATBM" >> /tmp/WIFI_MODULE
-	elif [ -f "/sdcard/thingino-wyze_c3_t31x_rtl.bin" ]; then
-		mv "/sdcard/thingino-wyze_c3_t31x_rtl.bin" "/sdcard/autoupdate-full.bin"
+	elif [ -f "/sdcard/thingino-wyze_cam3_t31x_gc2053_rtl8189ftv.bin" ]; then
+		mv "/sdcard/thingino-wyze_cam3_t31x_gc2053_rtl8189ftv.bin" "/sdcard/autoupdate-full.bin"
 		echo "Realtek RTL" >> /tmp/WIFI_MODULE
+	# cam pan v2
+	elif [ -f "/sdcard/thingino-wyze_campan2_t31x_gc2053_atbm6031.bin" ]; then
+		mv "/sdcard/thingino-wyze_campan2_t31x_gc2053_atbm6031.bin" "/sdcard/autoupdate-full.bin"
+		echo "Realtek RTL" >> /tmp/WIFI_MODULE
+
 	else
 		echo "Error: No matching firmware file found for t31, skipping rename."
 	fi
