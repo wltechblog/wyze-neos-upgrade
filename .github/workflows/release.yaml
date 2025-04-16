@@ -75,9 +75,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p initramfs/root
-          curl -L https://github.com/themactep/thingino-firmware/releases/download/firmware-2025-01-28/thingino-xiaomi_xiaofang_t20l_jxf23.bin -o initramfs/root/u-boot-isvp_t20_sfcnor_lite.bin
+          curl -L https://github.com/themactep/thingino-firmware/releases/latest/download/thingino-xiaomi_xiaofang_t20l_jxf23_rtl8189ftv.bin -o initramfs/root/u-boot-isvp_t20_sfcnor_lite.bin
           truncate -s 262144 initramfs/root/u-boot-isvp_t20_sfcnor_lite.bin
-          curl -L https://github.com/themactep/thingino-firmware/releases/download/firmware-2025-01-28/thingino-wyze_c3_t31x_atbm.bin -o initramfs/root/u-boot-isvp_t31_sfcnor_ddr128M.bin
+          curl -L https://github.com/themactep/thingino-firmware/releases/latest/download/thingino-wyze_cam3_t31x_gc2053_atbm6031.bin -o initramfs/root/u-boot-isvp_t31_sfcnor_ddr128M.bin
           truncate -s 262144 initramfs/root/u-boot-isvp_t31_sfcnor_ddr128M.bin
 
       - name: Clone kernel repository
