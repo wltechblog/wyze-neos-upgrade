@@ -165,29 +165,12 @@ sleep 1
 mkdir -p /sdcard
 mount -t vfat /dev/mmcblk0p1 /sdcard -o rw,umask=0000,dmask=0000
 
-# Perform MTD partition backup
-sleep 1
-backup_mtd_partitions
+# Disable installer so it an't run a second time
+mv /sdcard/factory_t31_ZMC6tiIDQN /sdcard/factory_t31_ZMC6tiIDQN.old
+mv /sdcard/factory_ZMC6tiIDQN /sdcard/factory_ZMC6tiIDQN.old
 
-# Copy logs to backup directory
-cp /tmp/* "$backup_dir"
-
-# Erase MTD partition and finalize backup process
-#echo "Erasing..."
-#flash_eraseall /dev/mtd0
-#echo "mtd0 erasing completed"
-
-echo "Erase Flash thingino u-boot"
-if [ "$(/sbin/soc -f)" = "t20" ]; then
-	flashcp -v /root/u-boot-isvp_t20_sfcnor_lite.bin /dev/mtd0
-elif [ "$(/sbin/soc -f)" = "t31" ]; then
-	flashcp -v /root/u-boot-isvp_t31_sfcnor_ddr128M.bin /dev/mtd0
-else
-	echo "SoC not supported in this installer"
-fi
-
+# Set up our firmware before we make our backup
 sensor_name=$(cat /tmp/SENSOR_VER | sed -n 's/.*Successful sensor detection: \([^,]*\),.*/\1/p')
-
 # Convenience rename
 if [ "$(/sbin/soc -f)" = "t20" ]; then
 	# Check for jxf23
@@ -222,11 +205,33 @@ elif [ "$(/sbin/soc -f)" = "t31" ]; then
 	fi
 fi
 
+
+# Perform MTD partition backup
+sleep 1
+backup_mtd_partitions
+
+# Copy logs to backup directory
+cp /tmp/* "$backup_dir"
+
+# Erase MTD partition and finalize backup process
+#echo "Erasing..."
+#flash_eraseall /dev/mtd0
+#echo "mtd0 erasing completed"
+
+echo "Erase Flash thingino u-boot"
+if [ "$(/sbin/soc -f)" = "t20" ]; then
+	flashcp -v /root/u-boot-isvp_t20_sfcnor_lite.bin /dev/mtd0
+elif [ "$(/sbin/soc -f)" = "t31" ]; then
+	flashcp -v /root/u-boot-isvp_t31_sfcnor_ddr128M.bin /dev/mtd0
+else
+	echo "SoC not supported in this installer"
+fi
+
+
+
 # Reboot and clean up
 echo "Rebooting..."
 
-mv /sdcard/factory_t31_ZMC6tiIDQN /sdcard/factory_t31_ZMC6tiIDQN.old
-mv /sdcard/factory_ZMC6tiIDQN /sdcard/factory_ZMC6tiIDQN.old
 
 cp "$log_file" "$log_backup" 2>/dev/null
 
