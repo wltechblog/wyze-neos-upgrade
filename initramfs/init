@@ -240,6 +240,7 @@ echo "First sync"
 sync
 echo "umount"
 umount /sdcard
+umount -f /sdcard
 echo "second sync"
 sync
 
