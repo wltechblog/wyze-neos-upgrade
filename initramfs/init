@@ -264,14 +264,16 @@ cp /tmp/* "$backup_dir"
 #flash_eraseall /dev/mtd0
 #echo "mtd0 erasing completed"
 
-echo "Erase Flash thingino u-boot"
-if [ "$(/sbin/soc -f)" = "t20" ]; then
-	flashcp -v /root/u-boot-isvp_t20_sfcnor_lite.bin /dev/mtd0
-elif [ "$(/sbin/soc -f)" = "t31" ]; then
-	flashcp -v /root/u-boot-isvp_t31_sfcnor_ddr128M.bin /dev/mtd0
-else
-	echo "SoC not supported in this installer"
-fi
+uniflasher
+
+#echo "Erase Flash thingino u-boot"
+#if [ "$(/sbin/soc -f)" = "t20" ]; then
+#	flashcp -v /root/u-boot-isvp_t20_sfcnor_lite.bin /dev/mtd0
+#elif [ "$(/sbin/soc -f)" = "t31" ]; then
+#	flashcp -v /root/u-boot-isvp_t31_sfcnor_ddr128M.bin /dev/mtd0
+#else
+#	echo "SoC not supported in this installer"
+#fi
 
 
 
