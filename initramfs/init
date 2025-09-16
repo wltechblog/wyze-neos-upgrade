@@ -180,6 +180,7 @@ else
 fi
 sleep 1
 echo 1 > /proc/jz/sinfo/info
+sleep 10
 dmesg | grep Success > /tmp/SENSOR_VER
 
 # Check if the SOC is t31a and handle Wi-Fi GPIO accordingly
